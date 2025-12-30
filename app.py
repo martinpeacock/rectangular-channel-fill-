@@ -1,11 +1,15 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Dec 30 17:37:38 2025
+
+@author: martp
+"""
+
 import streamlit as st
 import plotly.express as px
 
 from lw_model import capillary_fill_lucas_washburn
 
-# ---------------------------------------------------------
-# Streamlit Page Setup
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="Capillary Filling: Lucas–Washburn",
     layout="wide"
@@ -14,7 +18,7 @@ st.set_page_config(
 st.title("Capillary Filling in a Rectangular Microchannel")
 st.markdown(
     "This app simulates **1‑D Lucas–Washburn capillary filling** in a rectangular microchannel. "
-    "The filled region is represented as concentration = 1, and the unfilled region as 0."
+    "Now includes **temperature‑dependent viscosity and surface tension**."
 )
 
 # ---------------------------------------------------------
@@ -26,16 +30,16 @@ h_um = st.sidebar.number_input("Height [µm]", value=125.0, min_value=5.0, step=
 L_mm = st.sidebar.number_input("Length [mm]", value=10.0, min_value=1.0, step=1.0)
 
 st.sidebar.header("Fluid Properties")
-gamma = st.sidebar.number_input("Surface tension [N/m]", value=0.072, format="%.3f")
-mu_mPa_s = st.sidebar.number_input("Viscosity [mPa·s]", value=1.0, min_value=0.1, step=0.1, format="%.2f")
 theta_deg = st.sidebar.slider("Contact angle [°]", min_value=0.0, max_value=120.0, value=0.0, step=1.0)
+
+# NEW: Temperature slider
+T_C = st.sidebar.slider("Temperature [°C]", min_value=5.0, max_value=60.0, value=20.0, step=1.0)
 
 st.sidebar.header("Simulation Control")
 t_end = st.sidebar.number_input("Simulation time [s]", value=5.0, min_value=0.1, step=0.5, format="%.2f")
 Nt = st.sidebar.slider("Number of time points", min_value=100, max_value=1000, value=500, step=100)
 Nx = st.sidebar.slider("Number of spatial points", min_value=100, max_value=800, value=400, step=100)
 
-# NEW: Calibration factor
 st.sidebar.header("Device Calibration")
 K_scale = st.sidebar.number_input(
     "LW scaling factor (1 = ideal, ~6000 = device-like)",
@@ -50,29 +54,26 @@ run = st.sidebar.button("Run simulation")
 w = w_um * 1e-6
 h = h_um * 1e-6
 L_tot = L_mm * 1e-3
-mu = mu_mPa_s * 1e-3  # mPa·s → Pa·s
 
 # ---------------------------------------------------------
 # Run Simulation
 # ---------------------------------------------------------
 if run:
     with st.spinner("Running Lucas–Washburn simulation..."):
-        t, x, L, v, C, t_fill = capillary_fill_lucas_washburn(
+        t, x, L, v, C, t_fill, mu, gamma = capillary_fill_lucas_washburn(
             w=w,
             h=h,
             L_tot=L_tot,
-            gamma=gamma,
             theta_deg=theta_deg,
-            mu=mu,
             t_end=t_end,
             Nt=Nt,
             Nx=Nx,
-            K_scale=K_scale
+            K_scale=K_scale,
+            T_C=T_C
         )
 
-    # -----------------------------------------------------
-    # Front Position and Velocity Plots
-    # -----------------------------------------------------
+    st.success(f"Temperature: {T_C} °C — viscosity = {mu*1e3:.3f} mPa·s, surface tension = {gamma:.4f} N/m")
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -98,9 +99,6 @@ if run:
         )
         st.plotly_chart(fig_v, use_container_width=True)
 
-    # -----------------------------------------------------
-    # Concentration Profile (x-axis in mm)
-    # -----------------------------------------------------
     st.subheader("Filling Front and Concentration Profile")
 
     t_idx = st.slider(
@@ -113,7 +111,6 @@ if run:
     t_current = t[t_idx]
     L_current = L[t_idx]
 
-    # Convert x-axis to mm
     x_mm = x * 1e3
     L_current_mm = L_current * 1e3
 
