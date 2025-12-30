@@ -89,7 +89,7 @@ if run:
         st.plotly_chart(fig_v, use_container_width=True)
 
     # -----------------------------------------------------
-    # Concentration Profile (x-axis now in mm)
+    # Concentration Profile (x-axis now in mm and formatted)
     # -----------------------------------------------------
     st.subheader("Filling Front and Concentration Profile")
 
@@ -119,6 +119,7 @@ if run:
         title="Concentration Profile (1 = filled, 0 = empty)"
     )
     fig_c.update_yaxes(range=[-0.1, 1.1])
+    fig_c.update_xaxes(tickformat=".2f")  # ← ensures mm display
     st.plotly_chart(fig_c, use_container_width=True)
 
 else:
