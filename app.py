@@ -1,71 +1,122 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 30 07:23:43 2025
-
-@author: martp
-"""
-
+import streamlit as st
 import numpy as np
+import plotly.express as px
 
-def capillary_fill_lucas_washburn(
-    w=7.5e-4,      # width [m]
-    h=1.25e-4,     # height [m]
-    L_tot=1e-2,    # total channel length [m]
-    gamma=0.072,   # surface tension [N/m]
-    theta_deg=0.0, # contact angle [degrees]
-    mu=1e-3,       # viscosity [Pa·s]
-    t_end=5.0,     # simulation time [s]
-    Nt=500,        # time points
-    Nx=400         # spatial grid
-):
-    """
-    Lucas–Washburn capillary filling in a rectangular microchannel.
+from lw_model import capillary_fill_lucas_washburn
 
-    Returns:
-        t: time array [s]
-        x: spatial array [m]
-        L: front position vs time [m]
-        v: front velocity vs time [m/s]
-        C: concentration field (1 behind front, 0 ahead), shape (Nt, Nx)
-        t_fill: time to fill channel completely [s] (or None if not filled)
-    """
+# ---------------------------------------------------------
+# Streamlit Page Setup
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Capillary Filling: Lucas–Washburn",
+    layout="wide"
+)
 
-    theta = np.deg2rad(theta_deg)
+st.title("Capillary Filling in a Rectangular Microchannel")
+st.markdown(
+    "This app simulates **1‑D Lucas–Washburn capillary filling** in a rectangular microchannel. "
+    "The filled region is represented as concentration = 1, and the unfilled region as 0."
+)
 
-    # Geometric correction factor for rectangular cross-section
-    rect_corr = 1.0 - 0.63 * (h / w)
+# ---------------------------------------------------------
+# Sidebar Controls
+# ---------------------------------------------------------
+st.sidebar.header("Geometry")
+w_um = st.sidebar.number_input("Width [µm]", value=750.0, min_value=10.0, step=10.0)
+h_um = st.sidebar.number_input("Height [µm]", value=125.0, min_value=5.0, step=5.0)
+L_mm = st.sidebar.number_input("Length [mm]", value=10.0, min_value=1.0, step=1.0)
 
-    # Capillary pressure (approx for rectangular)
-    Pcap = gamma * np.cos(theta) * (1.0/h + 1.0/w)
+st.sidebar.header("Fluid Properties")
+gamma = st.sidebar.number_input("Surface tension [N/m]", value=0.072, format="%.3f")
+mu_mPa_s = st.sidebar.number_input("Viscosity [mPa·s]", value=1.0, min_value=0.1, step=0.1, format="%.2f")
+theta_deg = st.sidebar.slider("Contact angle [°]", min_value=0.0, max_value=120.0, value=0.0, step=1.0)
 
-    # Lucas–Washburn coefficient K in L(t) = sqrt(2 K t)
-    # Derived from balance of capillary pressure and viscous resistance
-    K = (Pcap * h**3 * w * rect_corr) / (12.0 * mu)
+st.sidebar.header("Simulation Control")
+t_end = st.sidebar.number_input("Simulation time [s]", value=5.0, min_value=0.1, step=0.5, format="%.2f")
+Nt = st.sidebar.slider("Number of time points", min_value=100, max_value=1000, value=500, step=100)
+Nx = st.sidebar.slider("Number of spatial points", min_value=100, max_value=800, value=400, step=100)
 
-    # Time grid
-    t = np.linspace(0.0, t_end, Nt)
+run = st.sidebar.button("Run simulation")
 
-    # Front position
-    L = np.sqrt(2.0 * K * t)
-    L = np.clip(L, 0.0, L_tot)
+# Unit conversions
+w = w_um * 1e-6
+h = h_um * 1e-6
+L_tot = L_mm * 1e-3
+mu = mu_mPa_s * 1e-3  # mPa·s → Pa·s
 
-    # Front velocity (numerical derivative)
-    # add small epsilon to avoid issues at t=0 when differentiated
-    v = np.gradient(L, t, edge_order=2)
+# ---------------------------------------------------------
+# Run Simulation
+# ---------------------------------------------------------
+if run:
+    with st.spinner("Running Lucas–Washburn simulation..."):
+        t, x, L, v, C, t_fill = capillary_fill_lucas_washburn(
+            w=w,
+            h=h,
+            L_tot=L_tot,
+            gamma=gamma,
+            theta_deg=theta_deg,
+            mu=mu,
+            t_end=t_end,
+            Nt=Nt,
+            Nx=Nx
+        )
 
-    # Space grid
-    x = np.linspace(0.0, L_tot, Nx)
+    # -----------------------------------------------------
+    # Front Position and Velocity Plots
+    # -----------------------------------------------------
+    col1, col2 = st.columns(2)
 
-    # Simple "concentration": 1 if filled, 0 if empty
-    C = np.zeros((Nt, Nx))
-    for i in range(Nt):
-        C[i, x <= L[i]] = 1.0
+    with col1:
+        st.subheader("Front Position vs Time")
+        fig_L = px.line(
+            x=t, y=L,
+            labels={"x": "Time [s]", "y": "Front Position [m]"},
+            title="Lucas–Washburn Front Position"
+        )
+        st.plotly_chart(fig_L, use_container_width=True)
 
-    # Time to fill channel: solve L(t_fill) = L_tot => L_tot^2 = 2 K t_fill
-    t_fill = None
-    if K > 0.0:
-        t_fill_est = L_tot**2 / (2.0 * K)
-        if t_fill_est <= t_end:
-            t_fill = t_fill_est
+        if t_fill is not None:
+            st.info(f"Estimated time to fill the channel: **{t_fill:.3f} s**")
+        else:
+            st.warning("Channel not fully filled within simulation time.")
 
-    return t, x, L, v, C, t_fill
+    with col2:
+        st.subheader("Front Velocity vs Time")
+        fig_v = px.line(
+            x=t, y=v,
+            labels={"x": "Time [s]", "y": "Front Velocity [m/s]"},
+            title="Front Velocity"
+        )
+        st.plotly_chart(fig_v, use_container_width=True)
+
+    # -----------------------------------------------------
+    # Concentration Profile
+    # -----------------------------------------------------
+    st.subheader("Filling Front and Concentration Profile")
+
+    t_idx = st.slider(
+        "Select time index",
+        min_value=0,
+        max_value=len(t) - 1,
+        value=len(t) - 1
+    )
+
+    t_current = t[t_idx]
+    L_current = L[t_idx]
+
+    st.markdown(
+        f"**Time:** {t_current:.4f} s &nbsp;&nbsp; "
+        f"**Front position:** {L_current:.4e} m"
+    )
+
+    fig_c = px.line(
+        x=x,
+        y=C[t_idx, :],
+        labels={"x": "Position [m]", "y": "Concentration"},
+        title="Concentration Profile (1 = filled, 0 = empty)"
+    )
+    fig_c.update_yaxes(range=[-0.1, 1.1])
+    st.plotly_chart(fig_c, use_container_width=True)
+
+else:
+    st.info("Adjust parameters in the sidebar and click **Run simulation** to begin.")
