@@ -1,5 +1,4 @@
 import streamlit as st
-import numpy as np
 import plotly.express as px
 
 from lw_model import capillary_fill_lucas_washburn
@@ -90,7 +89,7 @@ if run:
         st.plotly_chart(fig_v, use_container_width=True)
 
     # -----------------------------------------------------
-    # Concentration Profile
+    # Concentration Profile (x-axis now in mm)
     # -----------------------------------------------------
     st.subheader("Filling Front and Concentration Profile")
 
@@ -104,15 +103,19 @@ if run:
     t_current = t[t_idx]
     L_current = L[t_idx]
 
+    # Convert x-axis to mm
+    x_mm = x * 1e3
+    L_current_mm = L_current * 1e3
+
     st.markdown(
         f"**Time:** {t_current:.4f} s &nbsp;&nbsp; "
-        f"**Front position:** {L_current:.4e} m"
+        f"**Front position:** {L_current_mm:.2f} mm"
     )
 
     fig_c = px.line(
-        x=x,
+        x=x_mm,
         y=C[t_idx, :],
-        labels={"x": "Position [m]", "y": "Concentration"},
+        labels={"x": "Position [mm]", "y": "Concentration"},
         title="Concentration Profile (1 = filled, 0 = empty)"
     )
     fig_c.update_yaxes(range=[-0.1, 1.1])
