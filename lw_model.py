@@ -5,6 +5,8 @@ Created on Tue Dec 30 09:29:22 2025
 @author: martp
 """
 
+# LW MODEL v2.0 — includes K_scale calibration factor
+
 import numpy as np
 
 def capillary_fill_lucas_washburn(
