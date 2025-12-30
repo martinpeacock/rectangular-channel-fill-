@@ -35,6 +35,15 @@ t_end = st.sidebar.number_input("Simulation time [s]", value=5.0, min_value=0.1,
 Nt = st.sidebar.slider("Number of time points", min_value=100, max_value=1000, value=500, step=100)
 Nx = st.sidebar.slider("Number of spatial points", min_value=100, max_value=800, value=400, step=100)
 
+# NEW: Calibration factor
+st.sidebar.header("Device Calibration")
+K_scale = st.sidebar.number_input(
+    "LW scaling factor (1 = ideal, ~6000 = device-like)",
+    value=1.0,
+    min_value=1.0,
+    step=100.0
+)
+
 run = st.sidebar.button("Run simulation")
 
 # Unit conversions
@@ -57,7 +66,8 @@ if run:
             mu=mu,
             t_end=t_end,
             Nt=Nt,
-            Nx=Nx
+            Nx=Nx,
+            K_scale=K_scale
         )
 
     # -----------------------------------------------------
@@ -89,7 +99,7 @@ if run:
         st.plotly_chart(fig_v, use_container_width=True)
 
     # -----------------------------------------------------
-    # Concentration Profile (x-axis now in mm and formatted)
+    # Concentration Profile (x-axis in mm)
     # -----------------------------------------------------
     st.subheader("Filling Front and Concentration Profile")
 
@@ -119,7 +129,7 @@ if run:
         title="Concentration Profile (1 = filled, 0 = empty)"
     )
     fig_c.update_yaxes(range=[-0.1, 1.1])
-    fig_c.update_xaxes(tickformat=".2f")  # ← ensures mm display
+    fig_c.update_xaxes(tickformat=".2f")
     st.plotly_chart(fig_c, use_container_width=True)
 
 else:

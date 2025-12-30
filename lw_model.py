@@ -16,18 +16,12 @@ def capillary_fill_lucas_washburn(
     mu=1e-3,       # viscosity [Pa·s]
     t_end=5.0,     # simulation time [s]
     Nt=500,        # number of time points
-    Nx=400         # number of spatial points
+    Nx=400,        # number of spatial points
+    K_scale=1.0    # calibration factor (1 = ideal LW)
 ):
     """
     Lucas–Washburn capillary filling in a rectangular microchannel.
-
-    Returns:
-        t: time array [s]
-        x: spatial array [m]
-        L: front position vs time [m]
-        v: front velocity vs time [m/s]
-        C: concentration field (1 behind front, 0 ahead), shape (Nt, Nx)
-        t_fill: time to fill channel completely [s] (or None if not filled)
+    Includes a scaling factor K_scale to match real device behaviour.
     """
 
     # Convert contact angle to radians
@@ -39,8 +33,11 @@ def capillary_fill_lucas_washburn(
     # Capillary pressure (approximation for rectangular channels)
     Pcap = gamma * np.cos(theta) * (1.0/h + 1.0/w)
 
-    # Lucas–Washburn coefficient K in L(t) = sqrt(2 K t)
+    # Lucas–Washburn coefficient K
     K = (Pcap * h**3 * w * rect_corr) / (12.0 * mu)
+
+    # Apply calibration factor
+    K *= K_scale
 
     # Time grid
     t = np.linspace(0.0, t_end, Nt)
